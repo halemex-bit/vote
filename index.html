@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ms">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Absolut Bazaar: People's Choice Award</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="hero-section">
+        <img src="https://i.imgur.com/uikzokX.png" alt="Absolut Logo" class="hero-logo">
+        <div class="hero-text">The Largest Food Festival in Malaysia</div>
+        <div class="lang-switch">
+            <button onclick="setLanguage('my')" class="lang-btn active" id="btn_my">MY</button>
+            <button onclick="setLanguage('en')" class="lang-btn" id="btn_en">ENG</button>
+        </div>
+    </div>
+
+    <div class="curved-container">
+        <div class="content-wrapper">
+
+            <div id="adsModal" class="modal-overlay hidden" style="z-index: 3000 !important;">
+                <div class="ads-content-box">
+                    <span class="ads-label">SPONSORED</span>
+                    <a id="mainAdsLink" href="#" target="_blank">
+                        <img id="mainAdsImg" src="https://placehold.co/300x300/ffffff/000000?text=Loading..."
+                            class="ads-img">
+                    </a>
+                    <button class="ads-close-btn" onclick="closeAdsPopupManual()">TUTUP [X]</button>
+                </div>
+            </div>
+
+            <div id="scannerModal" class="modal-overlay hidden" style="z-index: 6000;">
+                <div class="modal-box scanner-modal-box">
+                    <div
+                        style="background:var(--accent); padding:15px; color:white; display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0; font-size:1rem; font-weight:800;">IMBAS & MENANG</h3>
+                        <button onclick="closeScannerModal()"
+                            style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">✕</button>
+                    </div>
+
+                    <div class="tab-header">
+                        <button class="tab-btn active" onclick="switchScannerTab('qr')"><i class="fas fa-qrcode"></i>
+                            SCAN BOOTH</button>
+                        <button class="tab-btn" onclick="switchScannerTab('ar')"><i class="fas fa-cube"></i> ABSOLUT
+                            AR</button>
+                        <button class="tab-btn" onclick="switchScannerTab('promo')"><i class="fas fa-tags"></i>
+                            PROMO</button>
+                    </div>
+
+                    <div id="tab-qr" class="tab-content active" style="background:#000; justify-content:center;">
+                        <div id="qr-reader-modal" style="width:100%;"></div>
+                        <p style="color:white; text-align:center; padding:10px; font-size:0.8rem;">Halakan kamera ke QR
+                            Code Booth</p>
+                    </div>
+
+                    <div id="tab-ar" class="tab-content">
+                        <div class="ar-placeholder">
+                            <i class="fas fa-dice-d20"
+                                style="font-size:3rem; color:var(--accent); margin-bottom:15px;"></i>
+                            <h3 style="color:var(--accent);">Absolut AR Game</h3>
+                            <p style="color:#666; font-size:0.8rem; margin-bottom:20px;">Cari marker tersembunyi di
+                                sekitar bazaar!</p>
+                            <button class="btn-action" style="padding:10px 20px; font-size:0.8rem;">MULA AR (COMING
+                                SOON)</button>
+                        </div>
+                    </div>
+
+                    <div id="tab-promo" class="tab-content">
+                        <div class="promo-grid">
+                            <div class="promo-item">
+                                <img src="https://placehold.co/100x100/orange/white?text=OFFER" class="promo-img">
+                                <div style="font-size:0.8rem; font-weight:bold;">Diskaun 20%</div>
+                                <div style="font-size:0.6rem; color:#666;">Booth V-005</div>
+                            </div>
+                            <div class="promo-item">
+                                <img src="https://placehold.co/100x100/blue/white?text=FREE" class="promo-img">
+                                <div style="font-size:0.8rem; font-weight:bold;">Air Percuma</div>
+                                <div style="font-size:0.6rem; color:#666;">Booth V-012</div>
+                            </div>
+                            <div class="promo-item">
+                                <img src="https://placehold.co/100x100/red/white?text=LUCKY" class="promo-img">
+                                <div style="font-size:0.8rem; font-weight:bold;">Cabutan Bertuah</div>
+                                <div style="font-size:0.6rem; color:#666;">Pentas Utama</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="neuModal" class="modal-overlay hidden" style="z-index: 5000;">
+                <div class="modal-box">
+                    <div id="modalHeaderContainer" style="display:flex; justify-content:center; margin-bottom:5px;">
+                        <span id="modalIconText" style="font-size:2rem;">⚠️</span>
+                        <img id="modalIconImg" src="https://i.imgur.com/uikzokX.png" class="hidden" style="width:60px;">
+                    </div>
+                    <h3 id="modalTitle" style="margin-bottom:5px; color:var(--text-main);">PENGESAHAN</h3>
+                    <p id="modalMsg" style="font-size:0.85rem; color:#666; margin-bottom:10px;">Sila lengkapkan info di
+                        bawah untuk teruskan.</p>
+
+                    <div id="otpDisplaySection" class="hidden otp-wrapper">
+                        <div class="otp-display-box">
+                            <span id="serverOtpText" class="otp-number">------</span>
+                            <button class="btn-copy-otp" onclick="copyOTP()"><i class="far fa-copy"></i> SALIN</button>
+                        </div>
+                        <p style="font-size:0.7rem; color:#888;">Salin kod di atas.</p>
+                    </div>
+
+                    <div id="historySection" class="hidden modal-section-box">
+                        <div class="stepper-wrapper">
+                            <div class="stepper-item" id="step1">
+                                <div class="step-counter">1</div>
+                            </div>
+                            <div class="stepper-item" id="step2">
+                                <div class="step-counter">2</div>
+                            </div>
+                            <div class="stepper-item" id="step3">
+                                <div class="step-counter">3</div>
+                            </div>
+                            <div class="stepper-item" id="step4">
+                                <div class="step-counter">4</div>
+                            </div>
+                            <div class="stepper-item" id="step5">
+                                <div class="step-counter">5</div>
+                            </div>
+                        </div>
+                        <p style="text-align:center; font-size:0.75rem; color:#888; margin-bottom:15px;">Lengkapkan 5
+                            undian untuk melayakkan diri ke Cabutan Bertuah!</p>
+                        <ul id="historyList" class="history-list"></ul>
+                    </div>
+
+                    <div id="profileViewSection" class="hidden modal-section-box">
+                        <p><strong>Nama:</strong> <span id="viewName"></span></p>
+                        <p><strong>Phone:</strong> <span id="viewPhone"></span></p>
+                        <p><strong>Email:</strong> <span id="viewEmail"></span></p>
+                        <p><strong>Telco:</strong> <span id="viewTelco"></span></p>
+                        <button onclick="enableEditMode()" class="btn-action"
+                            style="margin-top:10px; font-size:0.8rem; padding:10px;">EDIT PROFIL</button>
+                    </div>
+
+                    <div id="field-demographic" class="hidden modal-section-box">
+                        <div class="stats-row">
+                            <div class="neu-chart-box">
+                                <div class="chart-title-small">Jantina</div>
+                                <div class="chart-canvas-container"><canvas id="genderPie"></canvas></div>
+                                <div id="genderLegend" class="chart-legend">Loading...</div>
+                            </div>
+                            <div class="neu-chart-box">
+                                <div class="chart-title-small">Generasi</div>
+                                <div class="chart-canvas-container"><canvas id="genPie"></canvas></div>
+                                <div id="genLegend" class="chart-legend">Loading...</div>
+                            </div>
+                        </div>
+                        <span class="demo-label">JANTINA</span>
+                        <div class="gender-group">
+                            <div class="gender-opt">
+                                <input type="radio" id="g_l" name="modal_jantina" value="Lelaki"><label for="g_l"><i
+                                        class="fas fa-mars"></i> Lelaki</label>
+                            </div>
+                            <div class="gender-opt">
+                                <input type="radio" id="g_p" name="modal_jantina" value="Perempuan"><label for="g_p"><i
+                                        class="fas fa-venus"></i> Wanita</label>
+                            </div>
+                        </div>
+                        <span class="demo-label">GENERASI (IKUT TAHUN LAHIR)</span>
+                        <div class="gen-grid">
+                            <div class="gen-opt"><input type="radio" id="gen_z" name="modal_gen" value="Gen Z"><label
+                                    for="gen_z">Gen Z (1997-2012)</label></div>
+                            <div class="gen-opt"><input type="radio" id="gen_y" name="modal_gen"
+                                    value="Millennial"><label for="gen_y">Millennials (1981-1996)</label></div>
+                            <div class="gen-opt"><input type="radio" id="gen_x" name="modal_gen" value="Gen X"><label
+                                    for="gen_x">Gen X (1965-1980)</label></div>
+                            <div class="gen-opt"><input type="radio" id="gen_b" name="modal_gen" value="Boomers"><label
+                                    for="gen_b">Boomers (1946-1964)</label></div>
+                        </div>
+                        <span class="demo-label">ASAL NEGERI</span>
+                        <select id="modal_negeri" class="negeri-select">
+                            <option value="" disabled selected>Pilih Negeri</option>
+                            <option value="Johor">Johor</option>
+                            <option value="Kedah">Kedah</option>
+                            <option value="Kelantan">Kelantan</option>
+                            <option value="Melaka">Melaka</option>
+                            <option value="Negeri Sembilan">Negeri Sembilan</option>
+                            <option value="Pahang">Pahang</option>
+                            <option value="Perak">Perak</option>
+                            <option value="Perlis">Perlis</option>
+                            <option value="Pulau Pinang">Pulau Pinang</option>
+                            <option value="Sabah">Sabah</option>
+                            <option value="Sarawak">Sarawak</option>
+                            <option value="Selangor">Selangor</option>
+                            <option value="Terengganu">Terengganu</option>
+                            <option value="Putrajaya">Putrajaya</option>
+                            <option value="Kuala Lumpur">Kuala Lumpur</option>
+                            <option value="Oversea">Oversea</option>
+                        </select>
+                    </div>
+
+                    <div id="field-status" class="hidden modal-section-box">
+                        <span class="demo-label">STATUS TERKINI</span>
+                        <div class="chip-group" style="justify-content: center; margin-top:15px;">
+                            <div class="chip-option"><input type="radio" id="st_single" name="modal_status"
+                                    value="Single"><label for="st_single">Single</label></div>
+                            <div class="chip-option"><input type="radio" id="st_married" name="modal_status"
+                                    value="Berpunya"><label for="st_married">Berpunya</label></div>
+                            <div class="chip-option"><input type="radio" id="st_comp" name="modal_status"
+                                    value="Complicated"><label for="st_comp">Complicated</label></div>
+                        </div>
+                    </div>
+
+                    <div id="field-social" class="hidden modal-section-box social-promo-box">
+                        <h3 style="color:var(--accent); font-size:0.9rem;">MISI VIRAL</h3>
+                        <p style="font-size:0.75rem; color:#666; margin-bottom:15px;">Wajib follow kami untuk menang!
+                        </p>
+                        <div class="social-link-group" style="margin-bottom:20px;">
+                            <a href="https://www.instagram.com/absolutbazaar" target="_blank" class="social-icon-btn"><i
+                                    class="fab fa-instagram" style="color:#C13584;"></i></a>
+                            <a href="https://www.tiktok.com/@absolutevent" target="_blank" class="social-icon-btn"><i
+                                    class="fab fa-tiktok" style="color:#000000;"></i></a>
+                            <a href="https://www.facebook.com/absolutbazaar" target="_blank" class="social-icon-btn"><i
+                                    class="fab fa-facebook" style="color:#1877F2;"></i></a>
+                        </div>
+                        <div style="border-top:1px dashed #ccc; margin:15px 0;"></div>
+                        <p style="font-size:0.75rem; color:#666; margin-bottom:10px;">Post gambar dengan hashtag ini:
+                        </p>
+                        <div class="otp-display-box" style="width:100%; max-width:100%; margin-bottom:15px;">
+                            <div id="hashtagText"
+                                style="font-size:0.75rem; font-weight:700; color:var(--accent); text-align:left; line-height:1.4;">
+                                #abgr2026<br>#absolutvisitmalaysia<br>#AbsolutUnifiTM</div>
+                            <button class="btn-copy-otp" onclick="copyHashtags()"><i class="far fa-copy"></i>
+                                COPY</button>
+                        </div>
+                        <label class="field-label" style="font-size:0.75rem; font-weight:bold; color:#555;">PASTE LINK
+                            POSTING (OPTIONAL)</label>
+                        <input type="url" id="socialLinkInput" placeholder="https://instagram.com/p/...">
+                        <button class="btn-action" id="btnSubmitMission" onclick="submitSocialMission()"
+                            style="background:#333; padding:10px; font-size:0.8rem; margin-bottom:10px;">HANTAR LINK
+                            (MISI)</button>
+                    </div>
+
+                    <div id="field-receipt" class="hidden modal-section-box">
+                        <h3 style="color:var(--accent); margin-bottom:5px; font-size:0.9rem;">🧾 BONUS: UPLOAD RESIT
+                        </h3>
+                        <p style="font-size:0.75rem; color:#666; margin-bottom:10px;">Wajib belanja <strong>MINIMA
+                                RM300</strong> untuk layak hadiah misteri.</p>
+                        <label class="field-label" style="font-size:0.75rem; font-weight:bold; color:#555;">JENIS
+                            RESIT</label>
+                        <select id="receiptType" onchange="toggleReceiptInput()" style="margin-bottom:10px;">
+                            <option value="shopeepay">ShopeePay Transaction</option>
+                            <option value="physical">Resit Kedai (Kertas)</option>
+                        </select>
+                        <label class="field-label" style="font-size:0.75rem; font-weight:bold; color:#555;">JUMLAH
+                            BELANJA (RM)</label>
+                        <input type="number" id="receiptAmount" placeholder="0.00" style="margin-bottom:10px;">
+                        <div id="inputShopee">
+                            <label class="field-label" style="font-size:0.75rem; font-weight:bold; color:#555;">4 DIGIT
+                                TERAKHIR ORDER ID</label>
+                            <div class="input-hint" style="margin-top:-5px;">Cth: ...8821</div>
+                            <input type="text" id="receiptRef" placeholder="8821" maxlength="10">
+                        </div>
+                        <div id="inputPhysical" class="hidden">
+                            <div
+                                style="background:#fff3cd; color:#856404; padding:8px; border-radius:10px; font-size:0.7rem; margin-bottom:10px; border:1px solid #ffeeba;">
+                                <strong>⚠️ PENTING:</strong> Tulis <strong>No. Telefon</strong> anda di atas resit
+                                sebelum ambil gambar.
+                            </div>
+                            <label class="field-label" style="font-size:0.75rem; font-weight:bold; color:#555;">NOMBOR
+                                RESIT / WAKTU</label>
+                            <input type="text" id="receiptRefPhysical" placeholder="Cth: INV-1002 atau 12:30PM">
+                        </div>
+                        <label class="field-label" style="font-size:0.75rem; font-weight:bold; color:#555;">BUKTI
+                            (GAMBAR)</label>
+                        <input type="file" id="receiptFile" accept="image/*"
+                            style="padding:10px; font-size:0.8rem; width:100%;">
+                        <button class="btn-action" id="btnSubmitReceipt" onclick="processReceiptUpload()"
+                            style="background:#333; color:#555; margin-top:5px; font-size:0.8rem; padding:10px;">UPLOAD
+                            RESIT DULU</button>
+                        <p style="font-size:0.65rem; color:#888; margin-top:5px;">*Upload resit dahulu, kemudian tekan
+                            HANTAR UNDIAN SEKARANG.</p>
+                    </div>
+
+                    <div id="field-future" class="hidden modal-section-box">
+                        <h3 style="color:var(--accent); font-size:0.9rem;">SURVEY TERAKHIR</h3>
+                        <span class="field-label"
+                            style="color:var(--accent); font-size:0.8rem; margin-top:15px; font-weight:bold;">HADIR LAGI
+                            TAHUN DEPAN?</span>
+                        <div class="chip-group" style="justify-content: center; margin-bottom:20px;">
+                            <div class="chip-option"><input type="radio" id="ft_yes" name="modal_future"
+                                    value="Ya"><label for="ft_yes">Ya, Pasti!</label></div>
+                            <div class="chip-option"><input type="radio" id="ft_no" name="modal_future"
+                                    value="Tidak"><label for="ft_no">Tidak</label></div>
+                        </div>
+                        <label class="field-label" style="font-size:0.75rem; font-weight:bold; color:#555;">SEPATAH DUA
+                            UNTUK PENGANJUR</label>
+                        <textarea id="eventReview"
+                            placeholder="Review Jujur: Apa yang best?Produk rare? Service Laju (optional)"
+                            style="height:60px; font-size:0.8rem;"></textarea>
+                    </div>
+
+                    <div class="modal-btns">
+                        <button id="btnCancel" class="btn-modal btn-cancel hidden" onclick="closeModal()">Batal</button>
+                        <button id="btnConfirm" class="btn-modal btn-confirm" onclick="closeModal()">HANTAR UNDIAN
+                            SEKARANG</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="login-section" class="fade-in">
+                <div class="section-title">CHECK-IN !</div>
+                <div class="section-sub" id="txt_login_sub">Undian & komen ikhlas penentu kualiti bazaar akan datang.
+                </div>
+                <form id="otpForm">
+                    <label style="font-size:0.8rem; font-weight:700; color:#555; margin-left:10px;"
+                        id="lbl_phone">Nombor Telefon</label>
+                    <input type="tel" id="loginPhone" placeholder="0123456789" required>
+                    <div class="input-hint"><i class="fas fa-exclamation-circle"></i><span id="txt_phone_hint">Pemenang
+                            akan dihubungi melalui nombor ini. Pastikan betul!</span></div>
+                    <button type="button" id="btnCheckUser" class="btn-action"
+                        onclick="handleLoginFlow()">TERUSKAN</button>
+
+                    <div id="otpField" class="hidden otp-group fade-in">
+                        <label id="lbl_enter_otp" style="font-size:0.8rem; font-weight:700;">Masukkan Kod OTP</label>
+                        <input type="number" id="otpInput" placeholder="Contoh: 123456">
+                        <button type="button" class="btn-action impulse" onclick="verifyOtpLogin()"
+                            style="background:#fff; color:var(--accent); margin-bottom:5px;" id="btn_verify_otp">SAHKAN
+                            & MASUK</button>
+                        <p
+                            style="font-size:0.65rem; color:#777; text-align:center; margin-bottom:15px; line-height:1.3;">
+                            Dengan klik masuk, saya bersetuju dengan <a href="#" target="_blank"
+                                style="color:var(--text-main); font-weight:700; text-decoration:underline;">Syarat &
+                                Terma</a>.</p>
+                        <button type="button" class="btn-resend" onclick="resendCurrentOtp()" id="btn_resend"
+                            style="width:100%; border:none; background:none; color:#888; font-size:0.75rem; cursor:pointer; text-decoration:underline;">Belum
+                            dapat kod? Hantar Semula</button>
+                    </div>
+
+                    <div id="emailField" class="hidden otp-group fade-in">
+                        <label id="lbl_verify_email" style="font-size:0.8rem; font-weight:700;">Pengesahan Email</label>
+                        <input type="email" id="verifyEmailInput" placeholder="Email..." required>
+                        <button type="button" class="btn-action" onclick="verifyEmailLogin()"
+                            style="background:#fff; color:var(--accent);" id="btn_verify_identity">SAHKAN
+                            IDENTITI</button>
+                    </div>
+                    <div class="footer-link"><span id="txt_copyright">Hak Cipta Terpelihara ©</span><a
+                            href="https://halem.my/" target="_blank">halem.my</a></div>
+                    <div style="display:none;"><input type="text" id="bot_trap" name="bot_trap"></div>
+                </form>
+            </div>
+
+            <div id="voting-section" class="hidden fade-in">
+                <div class="header-row">
+                    <div class="header-title">
+                        <h1 id="txt_vote_title">ANDA JURI, <span>PENENTU!</span></h1>
+                    </div>
+                </div>
+
+                <div class="ticker-stripe">
+                    <div class="ticker-text" id="txt_ticker">Loading announcements...</div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="dash-col left"><span class="dash-label">Hello,</span><span class="dash-value"
+                            id="displayUserName">User</span></div>
+                    <div class="dash-col"><button class="btn-record-dash" onclick="showVoteHistory()"><i
+                                class="fas fa-list-ol"></i><span>REKOD</span></button></div>
+                    <div class="dash-col right"><span class="dash-label" id="txt_quota">UNDIAN</span><span
+                            class="vote-fraction"><span id="voteCount">0</span>/5</span></div>
+                </div>
+
+                <div id="luckyDrawContainer" class="lucky-ticket hidden">
+                    <div class="lucky-title">TAHNIAH! ANDA LAYAK CABUTAN BERTUAH</div>
+                    <div class="lucky-sub">Simpan screenshot ini sebagai bukti.</div>
+                    <div class="lucky-number" id="userLuckyNumber">LOADING..</div>
+                </div>
+
+                <div class="sponsor-carousel" id="sponsorContainer">
+                    <div class="carousel-slide active"><span style="color:#888;">Loading Sponsors...</span></div>
+                </div>
+
+                <form id="voteForm">
+                    <input type="hidden" id="boothIdInput" name="booth_id">
+                    <div style="text-align:center; margin-bottom:15px;">
+                        <div id="boothDisplay" class="booth-pill"
+                            style="background:var(--accent); color:#fff; padding:10px 25px; border-radius:50px; font-weight:900; font-size:1.1rem; display:inline-block; box-shadow:0 5px 15px rgba(0,51,102,0.3); transition: all 0.5s ease;">
+                            Scan Booth QR</div>
+                    </div>
+
+                    <div id="userInfoInputs" class="hidden">
+                        <div id="cancelEditBtn" class="hidden cancel-edit-trigger"><span class="btn-cancel-edit"
+                                onclick="cancelEditMode()">[ Batal & Guna Info Lama ]</span></div>
+                        <div style="text-align:right; margin-bottom:5px;"><button type="button" id="btnSaveProfile"
+                                class="hidden" onclick="saveUserProfile()"
+                                style="background:#27ae60; color:#fff; padding:5px 10px; border-radius:5px; font-size:0.7rem; border:none; cursor:pointer;">[SIMPAN
+                                PROFIL]</button></div>
+                        <input type="text" id="inputNama" name="nama" placeholder="Nama Penuh" required>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <input type="tel" id="formPhone" name="phone" readonly
+                                style="background:#eee; cursor:not-allowed;">
+                            <input type="email" id="inputEmail" name="email" placeholder="Email" required>
+                        </div>
+                        <select id="inputTelco" name="telco" required>
+                            <option value="" disabled selected id="opt_telco_default">Pilih Telco</option>
+                            <option value="CelcomDigi">CelcomDigi</option>
+                            <option value="Maxis">Maxis / Hotlink</option>
+                            <option value="Umobile">U Mobile</option>
+                            <option value="Unifi">Unifi Mobile</option>
+                            <option value="Yes">Yes 5G</option>
+                            <option value="XOX">XOX Mobile</option>
+                            <option value="TuneTalk">Tune Talk</option>
+                            <option value="redONE">redONE</option>
+                            <option value="Yoodo">Yoodo</option>
+                            <option value="Other">Lain-lain</option>
+                        </select>
+                    </div>
+
+                    <div class="rating-box">
+                        <div class="rating-row">
+                            <div class="rating-text-col" style="display:flex; flex-direction:column;"><span
+                                    class="rating-label" id="lbl_rate_design">DESIGN
+                                    BOOTH</span><span class="rating-sub" id="sub_rate_design"
+                                    style="font-size: 0.7rem; color: #888; font-weight: normal;">Kecantikan &
+                                    Kreativiti</span></div>
+                            <div class="stars"><input type="radio" id="d5" name="rate_design" value="5" required><label
+                                    for="d5"></label><input type="radio" id="d4" name="rate_design" value="4"><label
+                                    for="d4"></label><input type="radio" id="d3" name="rate_design" value="3"><label
+                                    for="d3"></label><input type="radio" id="d2" name="rate_design" value="2"><label
+                                    for="d2"></label><input type="radio" id="d1" name="rate_design" value="1"><label
+                                    for="d1"></label></div>
+                        </div>
+                        <div style="border-bottom:1px dashed #ccc; margin:5px 0;"></div>
+                        <div class="rating-row">
+                            <div class="rating-text-col" style="display:flex; flex-direction:column;"><span
+                                    class="rating-label" id="lbl_rate_value">HARGA &
+                                    PRODUK</span><span class="rating-sub" id="sub_rate_value"
+                                    style="font-size: 0.7rem; color: #888; font-weight: normal;">Kualiti &
+                                    Berbaloi</span></div>
+                            <div class="stars"><input type="radio" id="v5" name="rate_value" value="5" required><label
+                                    for="v5"></label><input type="radio" id="v4" name="rate_value" value="4"><label
+                                    for="v4"></label><input type="radio" id="v3" name="rate_value" value="3"><label
+                                    for="v3"></label><input type="radio" id="v2" name="rate_value" value="2"><label
+                                    for="v2"></label><input type="radio" id="v1" name="rate_value" value="1"><label
+                                    for="v1"></label></div>
+                        </div>
+                    </div>
+
+                    <textarea name="review" id="inputReview"
+                        placeholder="Review Jujur: Apa yang best?Produk rare? Service Laju (optional)"
+                        maxlength="300"></textarea>
+                    <div id="charCount"
+                        style="text-align:right; font-size:0.7rem; color:#888; margin-top:-10px; margin-bottom:10px;">
+                        0/300</div>
+
+                    <div style="position:relative; margin-bottom:15px;">
+                        <i class="fab fa-tiktok" style="position:absolute; top:15px; left:15px; color:#000;"></i>
+                        <input type="url" id="tiktokLink" placeholder="Link Video TikTok (Optional)"
+                            style="padding-left:40px;">
+                    </div>
+
+                    <button type="button" id="btnPreSubmit" class="btn-action" onclick="handlePreSubmit()">HANTAR
+                        UNDIAN</button>
+
+                    <div id="liveReviews" class="live-reviews-section hidden">
+                        <div class="live-header" id="txt_live_header">💬 Suara Pengundi Terkini</div>
+                        <div id="liveFeedContent"></div>
+                        <div style="text-align:center; margin-top:5px;"><span onclick="showFeedPage()"
+                                style="font-size:0.7rem; color:var(--accent); font-weight:700; cursor:pointer; text-decoration:underline;">Lihat
+                                Semua Feed >></span></div>
+                    </div>
+
+                    <div class="timer-container">
+                        <div class="time-box"><span class="time-val" id="d-val">00</span><span class="time-label"
+                                id="lbl_day">HARI</span></div>
+                        <div class="separator">:</div>
+                        <div class="time-box"><span class="time-val" id="h-val">00</span><span class="time-label"
+                                id="lbl_hour">JAM</span></div>
+                        <div class="separator">:</div>
+                        <div class="time-box"><span class="time-val" id="m-val">00</span><span class="time-label"
+                                id="lbl_min">MIN</span></div>
+                        <div class="separator">:</div>
+                        <div class="time-box"><span class="time-val" id="s-val">00</span><span class="time-label"
+                                id="lbl_sec">SAAT</span></div>
+                    </div>
+
+                </form>
+            </div>
+
+            <div id="map-section" class="hidden fade-in">
+                <div class="header-row" style="margin-bottom:15px;">
+                    <div class="header-title">
+                        <h1>PETA <span>BAZAAR</span></h1>
+                    </div>
+                </div>
+                <div class="map-full-container"><iframe src="https://brunei.halem.my/" class="map-iframe"
+                        allowfullscreen="" loading="lazy"></iframe></div>
+                <p style="font-size:0.75rem; color:#777; text-align:center; margin-top:10px;"><i
+                        class="fas fa-hand-pointer"></i> Gunakan dua jari untuk zoom jika perlu.</p>
+            </div>
+
+            <div id="feed-section" class="hidden fade-in">
+                <div class="header-row" style="margin-bottom:10px;">
+                    <div class="header-title">
+                        <h1>FEED <span>TERKINI</span></h1>
+                    </div>
+                </div>
+                <div class="filter-container">
+                    <input type="text" id="feedSearch" placeholder="Cari Booth (V-001) atau keyword..."
+                        onkeyup="applyFilter('search')">
+                    <div class="filter-chips">
+                        <button class="filter-btn active" id="filter_new"
+                            onclick="applyFilter('newest')">TERKINI</button>
+                        <button class="filter-btn" id="filter_love" onclick="applyFilter('most_loved')">❤️</button>
+                        <button class="filter-btn" id="filter_book" onclick="applyFilter('bookmarks')"><i
+                                class="fas fa-bookmark"></i></button>
+                        <button class="filter-btn" id="filter_design" onclick="applyFilter('design')">DESIGN</button>
+                        <button class="filter-btn" id="filter_price" onclick="applyFilter('price')">HARGA</button>
+                    </div>
+                </div>
+                <div class="feed-split-layout">
+                    <div id="fullFeedList" class="feed-main">
+                        <div style="text-align:center; padding:20px; color:#888;">Loading feed...</div>
+                    </div>
+                    <div class="feed-sidebar">
+                        <div class="ad-card-small"
+                            style="background-image:url('https://placehold.co/150x300/003366/ffffff?text=ADS+1');">
+                        </div>
+                        <div class="ad-card-small"
+                            style="background-image:url('https://placehold.co/150x300/e74c3c/ffffff?text=PROMO');">
+                        </div>
+                        <div class="ad-card-small"
+                            style="background-image:url('https://placehold.co/150x300/27ae60/ffffff?text=SPONSOR');">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="sticky-footer hidden" id="stickyFooter">
+        <button class="nav-btn active" onclick="scrollToTop()"><i class="fas fa-home"></i><span
+                id="nav_home">Utama</span></button>
+        <button class="nav-btn" onclick="showFeedPage()"><i class="fas fa-comment-alt"></i><span
+                id="nav_feed">Feed</span></button>
+        <div class="scan-btn-wrapper"><button class="btn-scan-footer impulse" onclick="toggleQrScanner()"
+                id="footerScanBtn"><i class="fas fa-qrcode"></i></button></div>
+        <button class="nav-btn" onclick="showMapPage()"><i class="fas fa-map-marked-alt"></i><span
+                id="nav_map">Peta</span></button>
+        <button class="nav-btn" onclick="showProfileDetails()"><i class="fas fa-user"></i><span
+                id="nav_profile">Profil</span></button>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
