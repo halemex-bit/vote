@@ -1344,3 +1344,43 @@ textarea {
     object-fit: contain;
     filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.2));
 }
+
+/* CHIP GROUP (Radio Button Group) - MISSED PREVIOUSLY */
+.chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+
+.chip-option {
+    position: relative;
+}
+
+.chip-option input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.chip-option label {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #e0e5ec;
+    border-radius: 50px;
+    color: #555;
+    font-size: 0.8rem;
+    font-weight: 700;
+    box-shadow: 5px 5px 10px #a3b1c6, -5px -5px 10px #ffffff;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.chip-option input:checked+label {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.3);
+}
