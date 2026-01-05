@@ -445,8 +445,9 @@ function renderFeedList(data) {
     data.forEach((v, i) => {
         const s1 = '★'.repeat(v.rate_design) + '☆'.repeat(5 - v.rate_design);
         const s2 = '★'.repeat(v.rate_value) + '☆'.repeat(5 - v.rate_value);
-        let displayName = (v.display_name || "USER").toUpperCase();
-        if (displayName.length > 6) displayName += "..";
+        let rawName = v.nama || v.voter_name || v.display_name || "USER";
+        let displayName = rawName.toUpperCase();
+        if (displayName.length > 6) displayName = displayName.substring(0, 6) + "..";
         const isLong = v.review.length > 80;
         const shortText = isLong ? v.review.substring(0, 80) + "..." : v.review;
         const fullText = v.review;
