@@ -350,8 +350,19 @@ async function fetchFullFeed() {
     const c = document.getElementById('fullFeedList');
     try {
         const result = await callWorker('get-feed', { limit: MAX_FEED_ITEMS });
+        console.log("Worker get-feed result:", result);
         const data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
+        console.log("Parsed feed data:", data);
+        
         if (data && Array.isArray(data)) {
+            // DEBUG: Log first item to see available fields
+            if (data.length > 0) {
+                console.log(">>> Feed data sample:", JSON.stringify(data[0], null, 2));
+                console.log(">>> All field names:", Object.keys(data[0]));
+                console.log(">>> Is 'nama' field exists?", 'nama' in data[0]);
+                console.log(">>> Nama value:", data[0].nama);
+            }
+            
             globalFeedData = data;
             const activeBtn = document.querySelector('.filter-btn.active');
             if (activeBtn && activeBtn.id === 'filter_love') applyFilter('most_loved');
@@ -359,7 +370,10 @@ async function fetchFullFeed() {
             else if (activeBtn && activeBtn.id === 'filter_new') applyFilter('newest');
             else applyFilter('newest');
         } else { c.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Tiada data feed.</div>'; }
-    } catch (error) { c.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Gagal muat turun feed.</div>'; }
+    } catch (error) { 
+        console.error("Fetch feed error:", error);
+        c.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Gagal muat turun feed.</div>'; 
+    }
 }
 
 function handleBookmark(id, btn) {
@@ -534,6 +548,7 @@ function appendFeedItems(count) {
         // Debug: log available fields if name is still USER
         if (rawName === "USER") {
             console.log("Vote data fields:", Object.keys(v));
+        }
 
         // Restore Dual Ratings
         const s1 = '★'.repeat(v.rate_design) + '<span style="opacity:0.3">' + '★'.repeat(5 - v.rate_design) + '</span>';
