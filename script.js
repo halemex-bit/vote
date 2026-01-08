@@ -526,9 +526,14 @@ function appendFeedItems(count) {
         const v = globalFeedBuffer[i];
 
         // --- NAME FIX: 6 letters limit ---
-        let rawName = v.voter_name || v.nama || v.name || v.display_name || "USER";
+        // Try all possible field names for voter name
+        let rawName = v.voter_name || v.p_nama || v.nama || v.name || v.display_name || v.user_name || v.username || "USER";
         let displayName = rawName.toUpperCase();
         if (displayName.length > 6) displayName = displayName.substring(0, 6) + "...";
+        
+        // Debug: log available fields if name is still USER
+        if (rawName === "USER") {
+            console.log("Vote data fields:", Object.keys(v));
 
         // Restore Dual Ratings
         const s1 = '★'.repeat(v.rate_design) + '<span style="opacity:0.3">' + '★'.repeat(5 - v.rate_design) + '</span>';
