@@ -65,30 +65,8 @@
                             Code Booth</p>
                     </div>
 
-                    <div id="tab-ar" class="tab-content" style="flex-direction: column;">
-                        <div id="arGate"
-                            style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:20px; text-align:center; background:#fff;">
-                            <img src="https://i.imgur.com/uikzokX.png"
-                                style="width:80px; margin-bottom:20px; filter:drop-shadow(0 5px 5px rgba(0,0,0,0.2));">
-
-                            <h3 style="color:var(--accent); margin-bottom:10px;">🔒 KUNCI AR</h3>
-                            <p style="color:#666; font-size:0.9rem; margin-bottom:20px;">Sila jawab soalan ini untuk
-                                membuka filter:</p>
-
-                            <label style="font-weight:bold; font-size:0.8rem; color:#333; margin-bottom:5px;">TEKA
-                                JENAMA ACARA TAHUN INI?</label>
-                            <input type="text" id="arQuizInput" placeholder="Contoh: Absolut"
-                                style="text-align:center; border:2px solid var(--accent); margin-bottom:10px; color:#333;">
-
-                            <button class="btn-action" onclick="checkArAnswer()"
-                                style="padding:12px; font-size:0.9rem;">BUKA AR FILTER</button>
-
-                            <p id="arErrorMsg" class="hidden"
-                                style="color:#e74c3c; font-weight:bold; font-size:0.8rem; margin-top:15px;">⚠️ Jawapan
-                                Salah! Cuba lagi.</p>
-                        </div>
-
-                        <iframe id="arIframe" class="hidden" style="width:100%; height:100%; border:none;"
+                    <div id="tab-ar" class="tab-content">
+                        <iframe id="arIframe" style="width:100%; height:100%; border:none;"
                             allow="camera;gyroscope;accelerometer;magnetometer;xr-spatial-tracking;microphone;"></iframe>
                     </div>
 

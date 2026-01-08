@@ -122,9 +122,7 @@ function setActiveNav(idx) {
     });
 }
 
-// --- SCANNER MODAL & AR GATE LOGIC ---
-let isArUnlocked = false; 
-
+// --- SCANNER MODAL LOGIC (NEW) ---
 function toggleQrScanner() {
     const modal = document.getElementById('scannerModal');
     if (modal.classList.contains('hidden')) {
@@ -132,17 +130,22 @@ function toggleQrScanner() {
         switchScannerTab('qr');
     } else { closeScannerModal(); }
 }
-
 function closeScannerModal() {
     document.getElementById('scannerModal').classList.add('hidden');
     stopQrScanner();
+    // Unload AR to stop camera
     const arFrame = document.getElementById('arIframe');
     if (arFrame) arFrame.src = "";
 }
-
 function switchScannerTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    // Stop camera if switching away from AR (optional, but good practice)
+    if (tabName !== 'ar') {
+        const arFrame = document.getElementById('arIframe');
+        if (arFrame) arFrame.src = "";
+    }
 
     if (tabName === 'qr') {
         document.querySelector('button[onclick="switchScannerTab(\'qr\')"]').classList.add('active');
@@ -150,56 +153,18 @@ function switchScannerTab(tabName) {
         startQrScanner();
     } else {
         stopQrScanner();
-        
         if (tabName === 'ar') {
             document.querySelector('button[onclick="switchScannerTab(\'ar\')"]').classList.add('active');
             document.getElementById('tab-ar').classList.add('active');
-            
-            // CHECK GATE STATUS
-            if (isArUnlocked) {
-                showArContent();
-            } else {
-                document.getElementById('arGate').classList.remove('hidden');
-                document.getElementById('arIframe').classList.add('hidden');
-            }
-
+            // Lazy load AR
+            const arFrame = document.getElementById('arIframe');
+            if (arFrame && !arFrame.src.includes('ar.html')) arFrame.src = "ar.html";
         } else if (tabName === 'promo') {
             document.querySelector('button[onclick="switchScannerTab(\'promo\')"]').classList.add('active');
             document.getElementById('tab-promo').classList.add('active');
         }
     }
 }
-
-function checkArAnswer() {
-    const input = document.getElementById('arQuizInput');
-    const errorMsg = document.getElementById('arErrorMsg');
-    const answer = input.value.trim().toLowerCase();
-    const correctAnswers = ['absolut', 'absolut bazaar', 'absolutbazaar'];
-
-    if (correctAnswers.includes(answer)) {
-        isArUnlocked = true; 
-        errorMsg.classList.add('hidden');
-        const btn = document.querySelector('#arGate button');
-        btn.innerText = "MEMBUKA...";
-        setTimeout(() => {
-            showArContent();
-            btn.innerText = "BUKA AR FILTER";
-            input.value = ""; 
-        }, 800);
-    } else {
-        errorMsg.classList.remove('hidden');
-        errorMsg.classList.add('shake'); setTimeout(() => errorMsg.classList.remove('shake'), 500);
-        input.value = ""; input.focus();
-    }
-}
-
-function showArContent() {
-    document.getElementById('arGate').classList.add('hidden');
-    const arFrame = document.getElementById('arIframe');
-    arFrame.classList.remove('hidden');
-    if (!arFrame.src.includes('ar.html')) { arFrame.src = "ar.html"; }
-}
-
 function startQrScanner() {
     if (html5QrCode && html5QrCode.isScanning) return;
     html5QrCode = new Html5Qrcode("qr-reader-modal");
@@ -343,26 +308,12 @@ async function processReceiptUpload() {
 }
 
 // --- FEED SYSTEM ---
-const FEED_BATCH_SIZE = 10; // Display awal 10 review
-const MAX_FEED_ITEMS = 200; // Maximum 200 reviews
-
 async function fetchFullFeed() {
     const c = document.getElementById('fullFeedList');
     try {
-        const result = await callWorker('get-feed', { limit: MAX_FEED_ITEMS });
-        console.log("Worker get-feed result:", result);
+        const result = await callWorker('get-feed', { limit: 100 });
         const data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
-        console.log("Parsed feed data:", data);
-        
         if (data && Array.isArray(data)) {
-            // DEBUG: Log first item to see available fields
-            if (data.length > 0) {
-                console.log(">>> Feed data sample:", JSON.stringify(data[0], null, 2));
-                console.log(">>> All field names:", Object.keys(data[0]));
-                console.log(">>> Is 'nama' field exists?", 'nama' in data[0]);
-                console.log(">>> Nama value:", data[0].nama);
-            }
-            
             globalFeedData = data;
             const activeBtn = document.querySelector('.filter-btn.active');
             if (activeBtn && activeBtn.id === 'filter_love') applyFilter('most_loved');
@@ -370,10 +321,7 @@ async function fetchFullFeed() {
             else if (activeBtn && activeBtn.id === 'filter_new') applyFilter('newest');
             else applyFilter('newest');
         } else { c.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Tiada data feed.</div>'; }
-    } catch (error) { 
-        console.error("Fetch feed error:", error);
-        c.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Gagal muat turun feed.</div>'; 
-    }
+    } catch (error) { c.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Gagal muat turun feed.</div>'; }
 }
 
 function handleBookmark(id, btn) {
@@ -392,6 +340,9 @@ function handleBookmark(id, btn) {
 async function handleLike(id, btnElement) {
     const likedPosts = JSON.parse(localStorage.getItem('liked_posts') || "[]");
     if (likedPosts.includes(id)) { showModal('info', 'Sudah Like', 'Anda sudah like post ini!'); return; }
+    const countSpan = btnElement.querySelector('.like-count');
+    // let currentVal = parseInt(countSpan.innerText); // Removed as button structure changed
+    // countSpan.innerText = currentVal + 1;
     btnElement.innerHTML = `<i class="fas fa-heart"></i> ${parseInt(btnElement.innerText.split(' ')[1] || 0) + 1} likes`;
     btnElement.style.color = '#e74c3c'; btnElement.classList.add('impulse');
     try {
@@ -401,49 +352,28 @@ async function handleLike(id, btnElement) {
 }
 window.toggleReview = function (id, btn) { document.getElementById(id).classList.remove('line-clamp-3'); btn.style.display = 'none'; }
 
-// --- LIVE FEED OPTIMIZED (10 per scroll, MAX 20) ---
+// --- LIVE FEED OPTIMIZED ---
 let liveFeedBuffer = [];
 let liveDisplayed = 0;
-const LIVE_BATCH_SIZE = 10; // Display awal 10
-const MAX_LIVE_ITEMS = 20; // Maximum 20 sahaja
-
 async function fetchLiveReviews() {
     const c = document.getElementById('liveFeedContent');
     if (!c) return; c.innerHTML = '';
     try {
-        const result = await callWorker('get-feed', { limit: 50 }); // Fetch more, display limited
+        const result = await callWorker('get-feed', { limit: 100 });
         const data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
         if (data && data.length) {
             document.getElementById('liveReviews').classList.remove('hidden');
-            liveFeedBuffer = data; 
-            liveDisplayed = 0;
-            appendLiveItems(LIVE_BATCH_SIZE); // Load 10 items initially
-            c.addEventListener('scroll', () => { 
-                if (c.scrollTop + c.clientHeight >= c.scrollHeight - 20) {
-                    appendLiveItems(20); // Load 20 on scroll
-                }
-            });
+            liveFeedBuffer = data; liveDisplayed = 0;
+            appendLiveItems(5);
+            c.addEventListener('scroll', () => { if (c.scrollTop + c.clientHeight >= c.scrollHeight - 20) appendLiveItems(5); });
         }
     } catch (error) { console.log("Live Review Error:", error); }
 }
-
 function appendLiveItems(count) {
-    if (liveDisplayed >= MAX_LIVE_ITEMS) return; // Stop if max reached (20)
-
     const c = document.getElementById('liveFeedContent');
-    // Calculate how many we can still add before hitting MAX_LIVE_ITEMS (20)
-    let remainingSlot = MAX_LIVE_ITEMS - liveDisplayed;
-    let actualCount = Math.min(count, remainingSlot);
-    
-    // On scroll: load 20 at a time (but respect max limit)
-    if (actualCount < count && liveDisplayed < MAX_LIVE_ITEMS) {
-        actualCount = Math.min(20, remainingSlot);
-    }
-    
-    // Ensure we don't go out of array bounds
-    const end = Math.min(liveDisplayed + actualCount, liveFeedBuffer.length);
-    
-    for (let i = liveDisplayed; i < end; i++) {
+    const start = liveDisplayed;
+    const end = Math.min(liveDisplayed + count, liveFeedBuffer.length);
+    for (let i = start; i < end; i++) {
         const v = liveFeedBuffer[i];
         const s1 = '★'.repeat(v.rate_design) + '☆'.repeat(5 - v.rate_design);
         const s2 = '★'.repeat(v.rate_value) + '☆'.repeat(5 - v.rate_value);
@@ -451,15 +381,6 @@ function appendLiveItems(count) {
         c.innerHTML += `<div class="live-card"><div class="live-top"><span class="live-booth">${v.booth_id}</span><div class="live-rating-col"><div>Design: <span class="star-gold">${s1}</span></div><div>Harga: <span class="star-gold">${s2}</span></div></div></div><div class="live-msg"><span id="rev-live-${i}" class="${isLong ? 'line-clamp-3' : ''}">${v.review}</span>${isLong ? `<span class="read-more-btn" onclick="toggleReview('rev-live-${i}',this)">...Lebih</span>` : ''}</div></div>`;
     }
     liveDisplayed = end;
-    
-    // Setup scroll listener for lazy loading 20 items
-    if (liveDisplayed < MAX_LIVE_ITEMS && liveDisplayed < liveFeedBuffer.length) {
-        c.onscroll = function() {
-            if (c.scrollTop + c.clientHeight >= c.scrollHeight - 20) {
-                appendLiveItems(20); // Load 20 on scroll
-            }
-        };
-    }
 }
 
 function applyFilter(type) {
@@ -479,7 +400,7 @@ function applyFilter(type) {
         sorted = sorted.filter(x => books.includes(x.id));
         if (sorted.length === 0 && !query) { document.getElementById('fullFeedList').innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Tiada simpanan bookmark.</div>'; return; }
     } else if (type === 'most_loved') {
-        sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0)); 
+        sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0)); // sorted = sorted.slice(0, 15); // Removed limit
     } else if (type === 'design') sorted.sort((a, b) => b.rate_design - a.rate_design);
     else if (type === 'price') sorted.sort((a, b) => b.rate_value - a.rate_value);
     else sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -503,14 +424,16 @@ function timeAgo(dateParam) {
 // --- OPTIMIZED FEED LOGIC ---
 let globalFeedBuffer = [];
 let displayedFeedCount = 0;
+const INITIAL_DISPLAY = 5;
+const LOAD_INCREMENT = 10;
 
 function renderFeedList(data) {
     const c = document.getElementById('fullFeedList');
-    const sponsorContainer = document.getElementById('feedSponsorBottom'); 
+    const sponsorContainer = document.getElementById('feedSponsorBottom'); // Check for existing container
 
     if (data) {
         c.innerHTML = '';
-        if (sponsorContainer) sponsorContainer.remove(); 
+        if (sponsorContainer) sponsorContainer.remove(); // specific cleanup
 
         globalFeedBuffer = data;
         displayedFeedCount = 0;
@@ -519,7 +442,7 @@ function renderFeedList(data) {
             c.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Tiada rekod dijumpai.</div>';
             return;
         }
-        appendFeedItems(FEED_BATCH_SIZE);
+        appendFeedItems(INITIAL_DISPLAY);
         addInfiniteScrollTrigger();
     }
 }
@@ -529,26 +452,20 @@ function appendFeedItems(count) {
     const myLikes = JSON.parse(localStorage.getItem('liked_posts') || "[]");
     const myBookmarks = JSON.parse(localStorage.getItem('userBookmarks') || "[]");
 
+    // Check if we already appended sponsors, remove to re-append at bottom if needed or just handle logic
     const existingSponsor = document.getElementById('feedSponsorBottom');
     if (existingSponsor) existingSponsor.remove();
 
     const start = displayedFeedCount;
-    // Cap at buffer length OR Max 100 items if enforced elsewhere (already fetched 100)
     const end = Math.min(displayedFeedCount + count, globalFeedBuffer.length);
 
     for (let i = start; i < end; i++) {
         const v = globalFeedBuffer[i];
 
-        // --- NAME FIX: 6 letters limit ---
-        // Try all possible field names for voter name
-        let rawName = v.voter_name || v.p_nama || v.nama || v.name || v.display_name || v.user_name || v.username || "USER";
+        // Name Fix
+        let rawName = v.voter_name || v.nama || v.name || v.display_name || "USER";
         let displayName = rawName.toUpperCase();
-        if (displayName.length > 6) displayName = displayName.substring(0, 6) + "...";
-        
-        // Debug: log available fields if name is still USER
-        if (rawName === "USER") {
-            console.log("Vote data fields:", Object.keys(v));
-        }
+        if (displayName.length > 6) displayName = displayName.substring(0, 6);
 
         // Restore Dual Ratings
         const s1 = '★'.repeat(v.rate_design) + '<span style="opacity:0.3">' + '★'.repeat(5 - v.rate_design) + '</span>';
@@ -565,6 +482,7 @@ function appendFeedItems(count) {
         const thumbHtml = v.tiktok_thumb ? `<div class="feed-thumb"><img src="${v.tiktok_thumb}"></div>` : '';
         const timeStr = timeAgo(v.created_at);
 
+        // Light Neumorphic Style with Dual Ratings
         const cardHtml = `
         <div class="feed-card-new fade-in">
             <div class="fc-row-1">
@@ -601,16 +519,22 @@ function appendFeedItems(count) {
                      <button onclick="handleBookmark(${v.id}, this)" class="btn-feed-action ${isBookmarked ? 'active' : ''}">
                         <i class="${isBookmarked ? 'fas' : 'far'} fa-bookmark"></i>
                     </button>
+                    <!-- Removed Reply Button -->
                 </div>
             </div>
         </div>`;
         c.insertAdjacentHTML('beforeend', cardHtml);
     }
     displayedFeedCount = end;
+
+    // Append Sponsor Ads at the bottom if end reached or always? User said "bawah feed tu"
+    // We'll append it at the very end of the current list.
     appendSponsorAds(c);
 }
 
 function appendSponsorAds(container) {
+    // Only fetch/show if not already there (helper)
+    // Actually we recreated it.
     const div = document.createElement('div');
     div.id = 'feedSponsorBottom';
     div.className = 'fade-in';
@@ -619,10 +543,19 @@ function appendSponsorAds(container) {
     div.innerHTML = '<h3 style="font-size:0.9rem; color:#888; margin-bottom:10px;">SPONSORED</h3><div id="feedSponsorContent" class="carousel-container" style="height:120px; border-radius:10px;"></div>';
     container.appendChild(div);
 
+    // Quick fetch for sponsors to populate this specific container if we want duplicate logic
+    // Or just clone the existing sponsor carousel from main page?
+    // Let's reuse fetchSponsors but target this ID?
+    // Simplified: Just put a placeholder or call a render function.
+    // For now, let's just copy the logic effectively.
     if (window.cachedSponsors && window.cachedSponsors.length > 0) {
         const sc = document.getElementById('feedSponsorContent');
         sc.innerHTML = '';
-        sc.className = ''; 
+        window.cachedSponsors.forEach((s, i) => { sc.innerHTML += `<div class="carousel-slide ${i === 0 ? 'active' : ''}"><a href="${s.target_url || '#'}" target="_blank" style="display:flex;justify-content:center;align-items:center;width:100%;height:100%;"><img src="${s.image_url}" class="carousel-img"></a></div>`; });
+        // Need separate carousel timer if distinct. For simplicity, just static or simple mapping.
+        // Actually, let's just make it a static banner or grid for "ads section".
+        // User asked for "sponsor ads section". A grid might be better than carousel.
+        sc.className = ''; // remove carousel class
         sc.style.display = 'flex';
         sc.style.gap = '10px';
         sc.style.overflowX = 'auto';
@@ -644,7 +577,7 @@ function addInfiniteScrollTrigger() {
 
         const observer = new IntersectionObserver(entries => {
             if (entries[0].isIntersecting) {
-                appendFeedItems(FEED_BATCH_SIZE);
+                appendFeedItems(LOAD_INCREMENT);
                 addInfiniteScrollTrigger();
             }
         }, { root: null, threshold: 0.1 });
@@ -762,37 +695,12 @@ async function fetchMainPopupAd() {
     try {
         const result = await callWorker('get-sponsor', { id: 9 });
         const data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
-        if (data && data.image_url) {
+        if (data) {
             const img = document.getElementById('mainAdsImg');
             const link = document.getElementById('mainAdsLink');
-            const modal = document.getElementById('adsModal');
-            
-            if (img) {
-                img.src = data.image_url;
-                img.onerror = function() {
-                    console.log('Ad image failed to load');
-                    if (modal) modal.classList.add('hidden');
-                };
-                img.onload = function() {
-                    console.log('Ad image loaded successfully');
-                };
-            }
-            if (link) link.href = data.target_url || "#";
-            
-            // Show modal after a short delay
-            setTimeout(() => {
-                const m = document.getElementById('adsModal');
-                if (m && m.classList.contains('hidden')) {
-                    // Don't auto-show, wait for user action or explicit call
-                    console.log('Main popup ad ready');
-                }
-            }, 500);
-        } else {
-            console.log('No main popup ad available');
+            if (img) img.src = data.image_url; if (link) link.href = data.target_url || "#";
         }
-    } catch (e) { 
-        console.log('Main popup ad fetch error:', e); 
-    }
+    } catch (e) { console.log(e); }
 }
 
 // --- LOAD EVENT DETAILS ---
@@ -888,27 +796,39 @@ function checkLoginStatus() {
         document.getElementById('formPhone').value = localStorage.getItem('userPhone');
         document.getElementById('stickyFooter').classList.remove('hidden');
         loadUserProfile(); syncUserStatus(localStorage.getItem('userPhone'));
-        
-        // Setup observer for live reviews
+        // fetchLiveReviews(); // REMOVED: Lazy load instead
         setupLiveFeedObserver();
-        
-        fetchMainPopupAd(); 
+        fetchMainPopupAd(); // Ensure Ads are fetched
     } else { document.getElementById('stickyFooter').classList.add('hidden'); showAdsPopup(); fetchMainPopupAd(); }
 }
 
 function setupLiveFeedObserver() {
+    const section = document.getElementById('liveReviews');
+    if (!section) return;
+    // We observe the section itself or a trigger before it
+    const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            fetchLiveReviews();
+            observer.disconnect(); // Fetch once
+        }
+    }, { threshold: 0.1 });
+    // Since the section is hidden initially, observing it might not work until it's unhidden.
+    // However, liveReviews is inside voting-section which is visible after login.
+    // BUT liveReviews class has 'hidden' initially? 
+    // fetchLiveReviews removes 'hidden'. So we need to observe the CONTAINER where it should appear, 
+    // OR we just observing the 'voting-section' scrolling? 
+    // Actually liveReviews is HIDDEN until data comes. 
+    // So we should just fetch it when 'voting-section' is visible? 
+    // Wait, user said "lazy loading untuk ... suara pengundi terkini".
+    // If it's hidden, we can't scroll to it. 
+    // Modification: Just call fetchLiveReviews but rely on scroll to render? 
+    // No, logic was: fetch -> remove hidden -> append items.
+    // New logic: When 'voting-section' is shown, start observing a placeholder?
+    // Let's assume we want to fetch it when the USER SCROLLS down to the bottom of voting form.
+    // Let's observe 'btnPreSubmit' as a proxy - when user sees submit button, we fetch reviews below it.
     const trigger = document.getElementById('btnPreSubmit');
-    if (trigger) {
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                fetchLiveReviews();
-                observer.disconnect(); 
-            }
-        }, { threshold: 0.1 });
-        observer.observe(trigger);
-    }
+    if (trigger) observer.observe(trigger);
 }
-
 async function syncUserStatus(phone) {
     try {
         const result = await callWorker('check-vote-count', { phone_input: phone });
@@ -980,26 +900,10 @@ async function submitVoteReal(modalData) {
 
 // --- CAROUSEL & INIT ---
 let slideIndex = 0;
-let carouselInterval = null;
-
 function startCarousel() {
-    // Clear any existing interval
-    if (carouselInterval) clearInterval(carouselInterval);
-    
     const slides = document.querySelectorAll('.carousel-slide');
-    if (slides.length === 0) {
-        console.log('No sponsor slides found');
-        return;
-    }
-    
-    console.log(`Starting carousel with ${slides.length} slides`);
-    
-    // Reset to first slide
-    slides.forEach(s => s.classList.remove('active'));
-    slideIndex = 0;
-    slides[0].classList.add('active');
-    
-    carouselInterval = setInterval(() => {
+    if (slides.length === 0) return;
+    setInterval(() => {
         slides[slideIndex].classList.remove('active');
         slideIndex = (slideIndex + 1) % slides.length;
         slides[slideIndex].classList.add('active');
@@ -1034,25 +938,13 @@ async function fetchSponsors() {
         const result = await callWorker('get-sponsors', { is_active: true });
         let data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
         if (data && Array.isArray(data) && data.length) {
-            window.cachedSponsors = data; 
+            window.cachedSponsors = data; // CACHE HERE
             const c = document.getElementById('sponsorContainer');
             if (!c) return; c.innerHTML = '';
             data.forEach((s, i) => { c.innerHTML += `<div class="carousel-slide ${i === 0 ? 'active' : ''}"><a href="${s.target_url || '#'}" target="_blank" style="display:flex;justify-content:center;align-items:center;width:100%;height:100%;"><img src="${s.image_url}" class="carousel-img"></a></div>`; });
             startCarousel();
-        } else {
-            // Fallback: Show placeholder message if no sponsors
-            const c = document.getElementById('sponsorContainer');
-            if (c) {
-                c.innerHTML = '<div class="carousel-slide active"><span style="color:#888;">Loading Sponsors...</span></div>';
-            }
         }
-    } catch (e) { 
-        console.error('Sponsor fetch error:', e);
-        const c = document.getElementById('sponsorContainer');
-        if (c) {
-            c.innerHTML = '<div class="carousel-slide active"><span style="color:#888;">Sponsors coming soon...</span></div>';
-        }
-    }
+    } catch (e) { console.error('Sponsor fetch error:', e); }
 }
 async function fetchAnnouncement() {
     try {
@@ -1089,8 +981,8 @@ function showModal(type, title, msg, onConfirm) {
     document.getElementById('modalIconText').classList.remove('hidden');
     document.getElementById('modalIconImg').classList.add('hidden');
     document.getElementById('btnCancel').classList.add('hidden');
-    document.querySelectorAll('#neuModal .hidden-section').forEach(s => s.classList.add('hidden')); 
-    
+    document.querySelectorAll('#neuModal .hidden-section').forEach(s => s.classList.add('hidden')); // Hypothetical class for sections
+    // Manually hide sections
     document.getElementById('otpDisplaySection').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
     document.getElementById('profileViewSection').classList.add('hidden');
