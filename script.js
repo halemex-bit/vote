@@ -479,7 +479,7 @@ function appendFeedItems(count) {
         const likeCount = v.likes || 0;
         const isBookmarked = myBookmarks.includes(v.id);
 
-        const thumbHtml = v.tiktok_thumb ? `<div class="feed-thumb"><img src="${v.tiktok_thumb}" loading="lazy"></div>` : '';
+        const thumbHtml = v.tiktok_thumb ? `<div class="feed-thumb"><img src="${v.tiktok_thumb}"></div>` : '';
         const timeStr = timeAgo(v.created_at);
 
         // Light Neumorphic Style with Dual Ratings
