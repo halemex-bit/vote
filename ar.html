@@ -238,20 +238,20 @@
             z-index: 15;
         }
 
-        /* Top UI */
+        /* Top UI - Updated styling */
         .top-ui {
             position: absolute;
-            top: 20px;
+            top: 30px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 25px;
             color: white;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 24px;
+            font-weight: 900;
             z-index: 10;
-            backdrop-filter: blur(10px);
+            text-shadow: 3px 3px 10px rgba(0, 0, 0, 0.9);
+            text-align: center;
+            line-height: 1.3;
+            max-width: 90%;
         }
 
         /* Recording Indicator */
@@ -344,6 +344,41 @@
             font-weight: bold;
             white-space: nowrap;
         }
+
+        /* Spinning Brand Display */
+        #spinning-brand {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            font-weight: 900;
+            color: white;
+            text-shadow: 3px 3px 15px rgba(0, 0, 0, 0.9);
+            z-index: 15;
+            display: none;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        #spinning-brand .brand-name {
+            font-size: 32px;
+            margin-top: 10px;
+        }
+
+        /* Logo above buttons */
+        .logo-above-buttons {
+            position: absolute;
+            bottom: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+        }
+
+        .logo-above-buttons img {
+            width: 100px;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.7));
+        }
     </style>
 </head>
 
@@ -353,7 +388,7 @@
         <video id="video" autoplay playsinline></video>
 
         <!-- Top UI -->
-        <div class="top-ui">🌙 RAYA BRAND FILTER 2025</div>
+        <div class="top-ui">BRAND mana patut<br>pakai tahun ini</div>
 
         <!-- Recording Indicator -->
         <div class="recording-indicator" id="recordingIndicator">
@@ -386,6 +421,17 @@
         <div class="instructions" id="instruction-text">
             🎥 Tekan butang MERAH untuk mula rakam<br>
             🌙 Tekan butang EMAS untuk spin brand!
+        </div>
+
+        <!-- Spinning Brand Display -->
+        <div id="spinning-brand">
+            <div class="brand-icon" id="spin-icon">🎁</div>
+            <div class="brand-name" id="spin-name">---</div>
+        </div>
+
+        <!-- Logo above buttons -->
+        <div class="logo-above-buttons">
+            <img src="https://i.imgur.com/uikzokX.png" alt="Absolut Bazaar">
         </div>
 
         <!-- Control Buttons -->
@@ -506,24 +552,39 @@
             // Draw Top UI
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(canvas.width / 2 - 150 * scale, 20 * scale, 300 * scale, 40 * scale);
-            ctx.font = `bold ${14 * scale}px Arial`;
             ctx.fillStyle = 'white';
             ctx.textAlign = 'center';
-            ctx.fillText('🌙 RAYA BRAND FILTER 2025', canvas.width / 2, 45 * scale);
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+            ctx.shadowBlur = 10 * scale;
+            ctx.font = `bold ${24 * scale}px Arial`;
+            ctx.fillText('BRAND mana patut', canvas.width / 2, 40 * scale);
+            ctx.fillText('pakai tahun ini', canvas.width / 2, 70 * scale);
+            ctx.shadowBlur = 0;
 
-            // Draw Recording Indicator if active
-            if (recordingIndEl.classList.contains('active')) {
-                ctx.fillStyle = '#D32F2F';
-                ctx.fillRect(20 * scale, 20 * scale, 100 * scale, 30 * scale);
-                ctx.beginPath();
-                ctx.arc(40 * scale, 35 * scale, 5 * scale, 0, 2 * Math.PI);
+            // REMOVED: Recording Indicator from canvas output per user request
+            // Users don't want recording label in video
+
+            // Draw Spinning Brand if visible
+            const spinningBrand = document.getElementById('spinning-brand');
+            if (spinningBrand && spinningBrand.style.display === 'block') {
+                const iconEl = document.getElementById('spin-icon');
+                const nameEl = document.getElementById('spin-name');
+
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+                ctx.shadowBlur = 15 * scale;
+
+                // Draw icon
+                ctx.font = `${60 * scale}px Arial`;
                 ctx.fillStyle = 'white';
-                ctx.fill();
-                ctx.font = `bold ${12 * scale}px Arial`;
-                ctx.fillText('RECORDING', 85 * scale, 40 * scale);
-            }
+                ctx.textAlign = 'center';
+                ctx.fillText(iconEl.textContent, canvas.width / 2, canvas.height / 2 - 20 * scale);
 
-            // Draw Countdown if visible
+                // Draw name
+                ctx.font = `bold ${32 * scale}px Arial`;
+                ctx.fillText(nameEl.textContent, canvas.width / 2, canvas.height / 2 + 30 * scale);
+
+                ctx.shadowBlur = 0;
+            }
             if (countdownElVisible.classList.contains('active')) {
                 ctx.font = `bold ${100 * scale}px Arial`;
                 ctx.fillStyle = 'white';
@@ -614,7 +675,18 @@
             ctx.font = `bold ${10 * scale}px Arial`;
             ctx.fillText('Powered by Absolut Bazaar', cardX + cardWidth / 2, cardY + 150 * scale);
 
-            // Reset text align
+            // Draw Logo above buttons area (in video)
+            const logoY = canvas.height - 140 * scale;
+            // Simple text representation of logo for canvas
+            ctx.fillStyle = 'white';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+            ctx.shadowBlur = 10 * scale;
+            ctx.font = `bold ${14 * scale}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('ABSOLUT BAZAAR', canvas.width / 2, logoY);
+            ctx.shadowBlur = 0;
+
+            // Note: Buttons are NOT drawn to canvas, so they won't appear in recording
             ctx.textAlign = 'left';
         }
 
@@ -732,6 +804,13 @@
             spinBtn.disabled = true;
             instructions.style.display = 'none';
 
+            // HIDE AR CARD when spin starts
+            card.style.display = 'none';
+
+            // SHOW spinning brand display
+            const spinDisplay = document.getElementById('spinning-brand');
+            spinDisplay.style.display = 'block';
+
             // Show countdown: 3, 2, 1
             let count = 3;
             countdownEl.textContent = count;
@@ -752,19 +831,24 @@
         });
 
         function startSpin() {
-            // Speed up the text cycling
-            let counter = 0;
+            // Keep card hidden during spinning
+            // Show only countdown/spinning effect
+
             const cycleSpeed = 80; // Change text every 80ms
-            const duration = 6000; // Spin for 6 seconds (as requested!)
+            const duration = 6000; // Spin for 6 seconds
 
             const interval = setInterval(() => {
                 const randomBrand = brands[Math.floor(Math.random() * brands.length)];
+
+                // Update spinning display
+                document.getElementById('spin-icon').textContent = randomBrand.icon;
+                document.getElementById('spin-name').textContent = randomBrand.name;
+
+                // Update hidden result for fallback
                 resultDisplay.innerHTML = `
                 <div class="brand-icon">${randomBrand.icon}</div>
                 <div>${randomBrand.name}</div>
             `;
-
-                // Change card background color
                 card.style.background = `linear-gradient(135deg, ${randomBrand.color}dd, ${randomBrand.color}99)`;
             }, cycleSpeed);
 
@@ -772,15 +856,23 @@
             setTimeout(() => {
                 clearInterval(interval);
 
+                // Hide spinning display
+                document.getElementById('spinning-brand').style.display = 'none';
+
                 // Pick final winner
                 const finalWinner = brands[Math.floor(Math.random() * brands.length)];
-                resultDisplay.innerHTML = `
-                <div class="brand-icon">${finalWinner.icon}</div>
-                <div>${finalWinner.name}</div>
-            `;
 
-                // Set final card color
+                // SHOW SIMPLIFIED RESULT: Answer top + Logo bottom
+                // Remove the decorative frame, just show clean result
+                card.innerHTML = `
+                    <div style="padding: 20px; text-align: center;">
+                        <div style="font-size: 80px; margin-bottom: 10px;">${finalWinner.icon}</div>
+                        <div style="font-size: 32px; font-weight: 900; color: #fff; text-shadow: 2px 2px 8px rgba(0,0,0,0.5); margin-bottom: 30px;">${finalWinner.name}</div>
+                        <img src="https://i.imgur.com/uikzokX.png" style="width: 120px; margin-top: 20px;" alt="Absolut Logo">
+                    </div>
+                `;
                 card.style.background = `linear-gradient(135deg, ${finalWinner.color}dd, ${finalWinner.color}99)`;
+                card.style.display = 'block';
 
                 // Visual pop effect
                 card.classList.add('pulse');
