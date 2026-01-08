@@ -130,10 +130,23 @@ function toggleQrScanner() {
         switchScannerTab('qr');
     } else { closeScannerModal(); }
 }
-function closeScannerModal() { document.getElementById('scannerModal').classList.add('hidden'); stopQrScanner(); }
+function closeScannerModal() {
+    document.getElementById('scannerModal').classList.add('hidden');
+    stopQrScanner();
+    // Unload AR to stop camera
+    const arFrame = document.getElementById('arIframe');
+    if (arFrame) arFrame.src = "";
+}
 function switchScannerTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    // Stop camera if switching away from AR (optional, but good practice)
+    if (tabName !== 'ar') {
+        const arFrame = document.getElementById('arIframe');
+        if (arFrame) arFrame.src = "";
+    }
+
     if (tabName === 'qr') {
         document.querySelector('button[onclick="switchScannerTab(\'qr\')"]').classList.add('active');
         document.getElementById('tab-qr').classList.add('active');
@@ -143,6 +156,9 @@ function switchScannerTab(tabName) {
         if (tabName === 'ar') {
             document.querySelector('button[onclick="switchScannerTab(\'ar\')"]').classList.add('active');
             document.getElementById('tab-ar').classList.add('active');
+            // Lazy load AR
+            const arFrame = document.getElementById('arIframe');
+            if (arFrame && !arFrame.src.includes('ar.html')) arFrame.src = "ar.html";
         } else if (tabName === 'promo') {
             document.querySelector('button[onclick="switchScannerTab(\'promo\')"]').classList.add('active');
             document.getElementById('tab-promo').classList.add('active');
@@ -463,7 +479,7 @@ function appendFeedItems(count) {
         const likeCount = v.likes || 0;
         const isBookmarked = myBookmarks.includes(v.id);
 
-        const thumbHtml = v.tiktok_thumb ? `<div class="feed-thumb"><img src="${v.tiktok_thumb}"></div>` : '';
+        const thumbHtml = v.tiktok_thumb ? `<div class="feed-thumb"><img src="${v.tiktok_thumb}" loading="lazy"></div>` : '';
         const timeStr = timeAgo(v.created_at);
 
         // Light Neumorphic Style with Dual Ratings
@@ -779,8 +795,39 @@ function checkLoginStatus() {
         document.getElementById('voting-section').classList.remove('hidden');
         document.getElementById('formPhone').value = localStorage.getItem('userPhone');
         document.getElementById('stickyFooter').classList.remove('hidden');
-        loadUserProfile(); syncUserStatus(localStorage.getItem('userPhone')); fetchLiveReviews();
-    } else { document.getElementById('stickyFooter').classList.add('hidden'); showAdsPopup(); }
+        loadUserProfile(); syncUserStatus(localStorage.getItem('userPhone'));
+        // fetchLiveReviews(); // REMOVED: Lazy load instead
+        setupLiveFeedObserver();
+        fetchMainPopupAd(); // Ensure Ads are fetched
+    } else { document.getElementById('stickyFooter').classList.add('hidden'); showAdsPopup(); fetchMainPopupAd(); }
+}
+
+function setupLiveFeedObserver() {
+    const section = document.getElementById('liveReviews');
+    if (!section) return;
+    // We observe the section itself or a trigger before it
+    const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            fetchLiveReviews();
+            observer.disconnect(); // Fetch once
+        }
+    }, { threshold: 0.1 });
+    // Since the section is hidden initially, observing it might not work until it's unhidden.
+    // However, liveReviews is inside voting-section which is visible after login.
+    // BUT liveReviews class has 'hidden' initially? 
+    // fetchLiveReviews removes 'hidden'. So we need to observe the CONTAINER where it should appear, 
+    // OR we just observing the 'voting-section' scrolling? 
+    // Actually liveReviews is HIDDEN until data comes. 
+    // So we should just fetch it when 'voting-section' is visible? 
+    // Wait, user said "lazy loading untuk ... suara pengundi terkini".
+    // If it's hidden, we can't scroll to it. 
+    // Modification: Just call fetchLiveReviews but rely on scroll to render? 
+    // No, logic was: fetch -> remove hidden -> append items.
+    // New logic: When 'voting-section' is shown, start observing a placeholder?
+    // Let's assume we want to fetch it when the USER SCROLLS down to the bottom of voting form.
+    // Let's observe 'btnPreSubmit' as a proxy - when user sees submit button, we fetch reviews below it.
+    const trigger = document.getElementById('btnPreSubmit');
+    if (trigger) observer.observe(trigger);
 }
 async function syncUserStatus(phone) {
     try {
