@@ -343,8 +343,8 @@ async function processReceiptUpload() {
 }
 
 // --- FEED SYSTEM ---
-const FEED_BATCH_SIZE = 5; // Updated per request
-const MAX_FEED_ITEMS = 100; // Updated per request
+const FEED_BATCH_SIZE = 10; // Display awal 10 review
+const MAX_FEED_ITEMS = 200; // Maximum 200 reviews
 
 async function fetchFullFeed() {
     const c = document.getElementById('fullFeedList');
@@ -387,11 +387,11 @@ async function handleLike(id, btnElement) {
 }
 window.toggleReview = function (id, btn) { document.getElementById(id).classList.remove('line-clamp-3'); btn.style.display = 'none'; }
 
-// --- LIVE FEED OPTIMIZED (5 per scroll, MAX 15) ---
+// --- LIVE FEED OPTIMIZED (10 per scroll, MAX 20) ---
 let liveFeedBuffer = [];
 let liveDisplayed = 0;
-const LIVE_BATCH_SIZE = 5;
-const MAX_LIVE_ITEMS = 15;
+const LIVE_BATCH_SIZE = 10; // Display awal 10
+const MAX_LIVE_ITEMS = 20; // Maximum 20 sahaja
 
 async function fetchLiveReviews() {
     const c = document.getElementById('liveFeedContent');
@@ -403,10 +403,10 @@ async function fetchLiveReviews() {
             document.getElementById('liveReviews').classList.remove('hidden');
             liveFeedBuffer = data; 
             liveDisplayed = 0;
-            appendLiveItems(LIVE_BATCH_SIZE);
+            appendLiveItems(LIVE_BATCH_SIZE); // Load 10 items initially
             c.addEventListener('scroll', () => { 
                 if (c.scrollTop + c.clientHeight >= c.scrollHeight - 20) {
-                    appendLiveItems(LIVE_BATCH_SIZE);
+                    appendLiveItems(20); // Load 20 on scroll
                 }
             });
         }
@@ -414,12 +414,17 @@ async function fetchLiveReviews() {
 }
 
 function appendLiveItems(count) {
-    if (liveDisplayed >= MAX_LIVE_ITEMS) return; // Stop if max reached
+    if (liveDisplayed >= MAX_LIVE_ITEMS) return; // Stop if max reached (20)
 
     const c = document.getElementById('liveFeedContent');
-    // Calculate how many we can still add before hitting MAX_LIVE_ITEMS
+    // Calculate how many we can still add before hitting MAX_LIVE_ITEMS (20)
     let remainingSlot = MAX_LIVE_ITEMS - liveDisplayed;
     let actualCount = Math.min(count, remainingSlot);
+    
+    // On scroll: load 20 at a time (but respect max limit)
+    if (actualCount < count && liveDisplayed < MAX_LIVE_ITEMS) {
+        actualCount = Math.min(20, remainingSlot);
+    }
     
     // Ensure we don't go out of array bounds
     const end = Math.min(liveDisplayed + actualCount, liveFeedBuffer.length);
@@ -432,6 +437,15 @@ function appendLiveItems(count) {
         c.innerHTML += `<div class="live-card"><div class="live-top"><span class="live-booth">${v.booth_id}</span><div class="live-rating-col"><div>Design: <span class="star-gold">${s1}</span></div><div>Harga: <span class="star-gold">${s2}</span></div></div></div><div class="live-msg"><span id="rev-live-${i}" class="${isLong ? 'line-clamp-3' : ''}">${v.review}</span>${isLong ? `<span class="read-more-btn" onclick="toggleReview('rev-live-${i}',this)">...Lebih</span>` : ''}</div></div>`;
     }
     liveDisplayed = end;
+    
+    // Setup scroll listener for lazy loading 20 items
+    if (liveDisplayed < MAX_LIVE_ITEMS && liveDisplayed < liveFeedBuffer.length) {
+        c.onscroll = function() {
+            if (c.scrollTop + c.clientHeight >= c.scrollHeight - 20) {
+                appendLiveItems(20); // Load 20 on scroll
+            }
+        };
+    }
 }
 
 function applyFilter(type) {
@@ -514,7 +528,7 @@ function appendFeedItems(count) {
         // --- NAME FIX: 6 letters limit ---
         let rawName = v.voter_name || v.nama || v.name || v.display_name || "USER";
         let displayName = rawName.toUpperCase();
-        if (displayName.length > 6) displayName = displayName.substring(0, 6);
+        if (displayName.length > 6) displayName = displayName.substring(0, 6) + "...";
 
         // Restore Dual Ratings
         const s1 = '★'.repeat(v.rate_design) + '<span style="opacity:0.3">' + '★'.repeat(5 - v.rate_design) + '</span>';
@@ -728,12 +742,37 @@ async function fetchMainPopupAd() {
     try {
         const result = await callWorker('get-sponsor', { id: 9 });
         const data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
-        if (data) {
+        if (data && data.image_url) {
             const img = document.getElementById('mainAdsImg');
             const link = document.getElementById('mainAdsLink');
-            if (img) img.src = data.image_url; if (link) link.href = data.target_url || "#";
+            const modal = document.getElementById('adsModal');
+            
+            if (img) {
+                img.src = data.image_url;
+                img.onerror = function() {
+                    console.log('Ad image failed to load');
+                    if (modal) modal.classList.add('hidden');
+                };
+                img.onload = function() {
+                    console.log('Ad image loaded successfully');
+                };
+            }
+            if (link) link.href = data.target_url || "#";
+            
+            // Show modal after a short delay
+            setTimeout(() => {
+                const m = document.getElementById('adsModal');
+                if (m && m.classList.contains('hidden')) {
+                    // Don't auto-show, wait for user action or explicit call
+                    console.log('Main popup ad ready');
+                }
+            }, 500);
+        } else {
+            console.log('No main popup ad available');
         }
-    } catch (e) { console.log(e); }
+    } catch (e) { 
+        console.log('Main popup ad fetch error:', e); 
+    }
 }
 
 // --- LOAD EVENT DETAILS ---
@@ -921,10 +960,26 @@ async function submitVoteReal(modalData) {
 
 // --- CAROUSEL & INIT ---
 let slideIndex = 0;
+let carouselInterval = null;
+
 function startCarousel() {
+    // Clear any existing interval
+    if (carouselInterval) clearInterval(carouselInterval);
+    
     const slides = document.querySelectorAll('.carousel-slide');
-    if (slides.length === 0) return;
-    setInterval(() => {
+    if (slides.length === 0) {
+        console.log('No sponsor slides found');
+        return;
+    }
+    
+    console.log(`Starting carousel with ${slides.length} slides`);
+    
+    // Reset to first slide
+    slides.forEach(s => s.classList.remove('active'));
+    slideIndex = 0;
+    slides[0].classList.add('active');
+    
+    carouselInterval = setInterval(() => {
         slides[slideIndex].classList.remove('active');
         slideIndex = (slideIndex + 1) % slides.length;
         slides[slideIndex].classList.add('active');
@@ -964,8 +1019,20 @@ async function fetchSponsors() {
             if (!c) return; c.innerHTML = '';
             data.forEach((s, i) => { c.innerHTML += `<div class="carousel-slide ${i === 0 ? 'active' : ''}"><a href="${s.target_url || '#'}" target="_blank" style="display:flex;justify-content:center;align-items:center;width:100%;height:100%;"><img src="${s.image_url}" class="carousel-img"></a></div>`; });
             startCarousel();
+        } else {
+            // Fallback: Show placeholder message if no sponsors
+            const c = document.getElementById('sponsorContainer');
+            if (c) {
+                c.innerHTML = '<div class="carousel-slide active"><span style="color:#888;">Loading Sponsors...</span></div>';
+            }
         }
-    } catch (e) { console.error('Sponsor fetch error:', e); }
+    } catch (e) { 
+        console.error('Sponsor fetch error:', e);
+        const c = document.getElementById('sponsorContainer');
+        if (c) {
+            c.innerHTML = '<div class="carousel-slide active"><span style="color:#888;">Sponsors coming soon...</span></div>';
+        }
+    }
 }
 async function fetchAnnouncement() {
     try {
