@@ -122,7 +122,9 @@ function setActiveNav(idx) {
     });
 }
 
-// --- SCANNER MODAL LOGIC (NEW) ---
+// --- SCANNER MODAL & AR GATE LOGIC ---
+let isArUnlocked = false; 
+
 function toggleQrScanner() {
     const modal = document.getElementById('scannerModal');
     if (modal.classList.contains('hidden')) {
@@ -130,22 +132,17 @@ function toggleQrScanner() {
         switchScannerTab('qr');
     } else { closeScannerModal(); }
 }
+
 function closeScannerModal() {
     document.getElementById('scannerModal').classList.add('hidden');
     stopQrScanner();
-    // Unload AR to stop camera
     const arFrame = document.getElementById('arIframe');
     if (arFrame) arFrame.src = "";
 }
+
 function switchScannerTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-    // Stop camera if switching away from AR (optional, but good practice)
-    if (tabName !== 'ar') {
-        const arFrame = document.getElementById('arIframe');
-        if (arFrame) arFrame.src = "";
-    }
 
     if (tabName === 'qr') {
         document.querySelector('button[onclick="switchScannerTab(\'qr\')"]').classList.add('active');
@@ -153,18 +150,56 @@ function switchScannerTab(tabName) {
         startQrScanner();
     } else {
         stopQrScanner();
+        
         if (tabName === 'ar') {
             document.querySelector('button[onclick="switchScannerTab(\'ar\')"]').classList.add('active');
             document.getElementById('tab-ar').classList.add('active');
-            // Lazy load AR
-            const arFrame = document.getElementById('arIframe');
-            if (arFrame && !arFrame.src.includes('ar.html')) arFrame.src = "ar.html";
+            
+            // CHECK GATE STATUS
+            if (isArUnlocked) {
+                showArContent();
+            } else {
+                document.getElementById('arGate').classList.remove('hidden');
+                document.getElementById('arIframe').classList.add('hidden');
+            }
+
         } else if (tabName === 'promo') {
             document.querySelector('button[onclick="switchScannerTab(\'promo\')"]').classList.add('active');
             document.getElementById('tab-promo').classList.add('active');
         }
     }
 }
+
+function checkArAnswer() {
+    const input = document.getElementById('arQuizInput');
+    const errorMsg = document.getElementById('arErrorMsg');
+    const answer = input.value.trim().toLowerCase();
+    const correctAnswers = ['absolut', 'absolut bazaar', 'absolutbazaar'];
+
+    if (correctAnswers.includes(answer)) {
+        isArUnlocked = true; 
+        errorMsg.classList.add('hidden');
+        const btn = document.querySelector('#arGate button');
+        btn.innerText = "MEMBUKA...";
+        setTimeout(() => {
+            showArContent();
+            btn.innerText = "BUKA AR FILTER";
+            input.value = ""; 
+        }, 800);
+    } else {
+        errorMsg.classList.remove('hidden');
+        errorMsg.classList.add('shake'); setTimeout(() => errorMsg.classList.remove('shake'), 500);
+        input.value = ""; input.focus();
+    }
+}
+
+function showArContent() {
+    document.getElementById('arGate').classList.add('hidden');
+    const arFrame = document.getElementById('arIframe');
+    arFrame.classList.remove('hidden');
+    if (!arFrame.src.includes('ar.html')) { arFrame.src = "ar.html"; }
+}
+
 function startQrScanner() {
     if (html5QrCode && html5QrCode.isScanning) return;
     html5QrCode = new Html5Qrcode("qr-reader-modal");
@@ -308,10 +343,13 @@ async function processReceiptUpload() {
 }
 
 // --- FEED SYSTEM ---
+const FEED_BATCH_SIZE = 5; // Updated per request
+const MAX_FEED_ITEMS = 100; // Updated per request
+
 async function fetchFullFeed() {
     const c = document.getElementById('fullFeedList');
     try {
-        const result = await callWorker('get-feed', { limit: 100 });
+        const result = await callWorker('get-feed', { limit: MAX_FEED_ITEMS });
         const data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
         if (data && Array.isArray(data)) {
             globalFeedData = data;
@@ -340,9 +378,6 @@ function handleBookmark(id, btn) {
 async function handleLike(id, btnElement) {
     const likedPosts = JSON.parse(localStorage.getItem('liked_posts') || "[]");
     if (likedPosts.includes(id)) { showModal('info', 'Sudah Like', 'Anda sudah like post ini!'); return; }
-    const countSpan = btnElement.querySelector('.like-count');
-    // let currentVal = parseInt(countSpan.innerText); // Removed as button structure changed
-    // countSpan.innerText = currentVal + 1;
     btnElement.innerHTML = `<i class="fas fa-heart"></i> ${parseInt(btnElement.innerText.split(' ')[1] || 0) + 1} likes`;
     btnElement.style.color = '#e74c3c'; btnElement.classList.add('impulse');
     try {
@@ -352,28 +387,44 @@ async function handleLike(id, btnElement) {
 }
 window.toggleReview = function (id, btn) { document.getElementById(id).classList.remove('line-clamp-3'); btn.style.display = 'none'; }
 
-// --- LIVE FEED OPTIMIZED ---
+// --- LIVE FEED OPTIMIZED (5 per scroll, MAX 15) ---
 let liveFeedBuffer = [];
 let liveDisplayed = 0;
+const LIVE_BATCH_SIZE = 5;
+const MAX_LIVE_ITEMS = 15;
+
 async function fetchLiveReviews() {
     const c = document.getElementById('liveFeedContent');
     if (!c) return; c.innerHTML = '';
     try {
-        const result = await callWorker('get-feed', { limit: 100 });
+        const result = await callWorker('get-feed', { limit: 50 }); // Fetch more, display limited
         const data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
         if (data && data.length) {
             document.getElementById('liveReviews').classList.remove('hidden');
-            liveFeedBuffer = data; liveDisplayed = 0;
-            appendLiveItems(5);
-            c.addEventListener('scroll', () => { if (c.scrollTop + c.clientHeight >= c.scrollHeight - 20) appendLiveItems(5); });
+            liveFeedBuffer = data; 
+            liveDisplayed = 0;
+            appendLiveItems(LIVE_BATCH_SIZE);
+            c.addEventListener('scroll', () => { 
+                if (c.scrollTop + c.clientHeight >= c.scrollHeight - 20) {
+                    appendLiveItems(LIVE_BATCH_SIZE);
+                }
+            });
         }
     } catch (error) { console.log("Live Review Error:", error); }
 }
+
 function appendLiveItems(count) {
+    if (liveDisplayed >= MAX_LIVE_ITEMS) return; // Stop if max reached
+
     const c = document.getElementById('liveFeedContent');
-    const start = liveDisplayed;
-    const end = Math.min(liveDisplayed + count, liveFeedBuffer.length);
-    for (let i = start; i < end; i++) {
+    // Calculate how many we can still add before hitting MAX_LIVE_ITEMS
+    let remainingSlot = MAX_LIVE_ITEMS - liveDisplayed;
+    let actualCount = Math.min(count, remainingSlot);
+    
+    // Ensure we don't go out of array bounds
+    const end = Math.min(liveDisplayed + actualCount, liveFeedBuffer.length);
+    
+    for (let i = liveDisplayed; i < end; i++) {
         const v = liveFeedBuffer[i];
         const s1 = '★'.repeat(v.rate_design) + '☆'.repeat(5 - v.rate_design);
         const s2 = '★'.repeat(v.rate_value) + '☆'.repeat(5 - v.rate_value);
@@ -400,7 +451,7 @@ function applyFilter(type) {
         sorted = sorted.filter(x => books.includes(x.id));
         if (sorted.length === 0 && !query) { document.getElementById('fullFeedList').innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Tiada simpanan bookmark.</div>'; return; }
     } else if (type === 'most_loved') {
-        sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0)); // sorted = sorted.slice(0, 15); // Removed limit
+        sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0)); 
     } else if (type === 'design') sorted.sort((a, b) => b.rate_design - a.rate_design);
     else if (type === 'price') sorted.sort((a, b) => b.rate_value - a.rate_value);
     else sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -424,16 +475,14 @@ function timeAgo(dateParam) {
 // --- OPTIMIZED FEED LOGIC ---
 let globalFeedBuffer = [];
 let displayedFeedCount = 0;
-const INITIAL_DISPLAY = 5;
-const LOAD_INCREMENT = 10;
 
 function renderFeedList(data) {
     const c = document.getElementById('fullFeedList');
-    const sponsorContainer = document.getElementById('feedSponsorBottom'); // Check for existing container
+    const sponsorContainer = document.getElementById('feedSponsorBottom'); 
 
     if (data) {
         c.innerHTML = '';
-        if (sponsorContainer) sponsorContainer.remove(); // specific cleanup
+        if (sponsorContainer) sponsorContainer.remove(); 
 
         globalFeedBuffer = data;
         displayedFeedCount = 0;
@@ -442,7 +491,7 @@ function renderFeedList(data) {
             c.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Tiada rekod dijumpai.</div>';
             return;
         }
-        appendFeedItems(INITIAL_DISPLAY);
+        appendFeedItems(FEED_BATCH_SIZE);
         addInfiniteScrollTrigger();
     }
 }
@@ -452,17 +501,17 @@ function appendFeedItems(count) {
     const myLikes = JSON.parse(localStorage.getItem('liked_posts') || "[]");
     const myBookmarks = JSON.parse(localStorage.getItem('userBookmarks') || "[]");
 
-    // Check if we already appended sponsors, remove to re-append at bottom if needed or just handle logic
     const existingSponsor = document.getElementById('feedSponsorBottom');
     if (existingSponsor) existingSponsor.remove();
 
     const start = displayedFeedCount;
+    // Cap at buffer length OR Max 100 items if enforced elsewhere (already fetched 100)
     const end = Math.min(displayedFeedCount + count, globalFeedBuffer.length);
 
     for (let i = start; i < end; i++) {
         const v = globalFeedBuffer[i];
 
-        // Name Fix
+        // --- NAME FIX: 6 letters limit ---
         let rawName = v.voter_name || v.nama || v.name || v.display_name || "USER";
         let displayName = rawName.toUpperCase();
         if (displayName.length > 6) displayName = displayName.substring(0, 6);
@@ -482,7 +531,6 @@ function appendFeedItems(count) {
         const thumbHtml = v.tiktok_thumb ? `<div class="feed-thumb"><img src="${v.tiktok_thumb}"></div>` : '';
         const timeStr = timeAgo(v.created_at);
 
-        // Light Neumorphic Style with Dual Ratings
         const cardHtml = `
         <div class="feed-card-new fade-in">
             <div class="fc-row-1">
@@ -519,22 +567,16 @@ function appendFeedItems(count) {
                      <button onclick="handleBookmark(${v.id}, this)" class="btn-feed-action ${isBookmarked ? 'active' : ''}">
                         <i class="${isBookmarked ? 'fas' : 'far'} fa-bookmark"></i>
                     </button>
-                    <!-- Removed Reply Button -->
                 </div>
             </div>
         </div>`;
         c.insertAdjacentHTML('beforeend', cardHtml);
     }
     displayedFeedCount = end;
-
-    // Append Sponsor Ads at the bottom if end reached or always? User said "bawah feed tu"
-    // We'll append it at the very end of the current list.
     appendSponsorAds(c);
 }
 
 function appendSponsorAds(container) {
-    // Only fetch/show if not already there (helper)
-    // Actually we recreated it.
     const div = document.createElement('div');
     div.id = 'feedSponsorBottom';
     div.className = 'fade-in';
@@ -543,19 +585,10 @@ function appendSponsorAds(container) {
     div.innerHTML = '<h3 style="font-size:0.9rem; color:#888; margin-bottom:10px;">SPONSORED</h3><div id="feedSponsorContent" class="carousel-container" style="height:120px; border-radius:10px;"></div>';
     container.appendChild(div);
 
-    // Quick fetch for sponsors to populate this specific container if we want duplicate logic
-    // Or just clone the existing sponsor carousel from main page?
-    // Let's reuse fetchSponsors but target this ID?
-    // Simplified: Just put a placeholder or call a render function.
-    // For now, let's just copy the logic effectively.
     if (window.cachedSponsors && window.cachedSponsors.length > 0) {
         const sc = document.getElementById('feedSponsorContent');
         sc.innerHTML = '';
-        window.cachedSponsors.forEach((s, i) => { sc.innerHTML += `<div class="carousel-slide ${i === 0 ? 'active' : ''}"><a href="${s.target_url || '#'}" target="_blank" style="display:flex;justify-content:center;align-items:center;width:100%;height:100%;"><img src="${s.image_url}" class="carousel-img"></a></div>`; });
-        // Need separate carousel timer if distinct. For simplicity, just static or simple mapping.
-        // Actually, let's just make it a static banner or grid for "ads section".
-        // User asked for "sponsor ads section". A grid might be better than carousel.
-        sc.className = ''; // remove carousel class
+        sc.className = ''; 
         sc.style.display = 'flex';
         sc.style.gap = '10px';
         sc.style.overflowX = 'auto';
@@ -577,7 +610,7 @@ function addInfiniteScrollTrigger() {
 
         const observer = new IntersectionObserver(entries => {
             if (entries[0].isIntersecting) {
-                appendFeedItems(LOAD_INCREMENT);
+                appendFeedItems(FEED_BATCH_SIZE);
                 addInfiniteScrollTrigger();
             }
         }, { root: null, threshold: 0.1 });
@@ -796,39 +829,27 @@ function checkLoginStatus() {
         document.getElementById('formPhone').value = localStorage.getItem('userPhone');
         document.getElementById('stickyFooter').classList.remove('hidden');
         loadUserProfile(); syncUserStatus(localStorage.getItem('userPhone'));
-        // fetchLiveReviews(); // REMOVED: Lazy load instead
+        
+        // Setup observer for live reviews
         setupLiveFeedObserver();
-        fetchMainPopupAd(); // Ensure Ads are fetched
+        
+        fetchMainPopupAd(); 
     } else { document.getElementById('stickyFooter').classList.add('hidden'); showAdsPopup(); fetchMainPopupAd(); }
 }
 
 function setupLiveFeedObserver() {
-    const section = document.getElementById('liveReviews');
-    if (!section) return;
-    // We observe the section itself or a trigger before it
-    const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting) {
-            fetchLiveReviews();
-            observer.disconnect(); // Fetch once
-        }
-    }, { threshold: 0.1 });
-    // Since the section is hidden initially, observing it might not work until it's unhidden.
-    // However, liveReviews is inside voting-section which is visible after login.
-    // BUT liveReviews class has 'hidden' initially? 
-    // fetchLiveReviews removes 'hidden'. So we need to observe the CONTAINER where it should appear, 
-    // OR we just observing the 'voting-section' scrolling? 
-    // Actually liveReviews is HIDDEN until data comes. 
-    // So we should just fetch it when 'voting-section' is visible? 
-    // Wait, user said "lazy loading untuk ... suara pengundi terkini".
-    // If it's hidden, we can't scroll to it. 
-    // Modification: Just call fetchLiveReviews but rely on scroll to render? 
-    // No, logic was: fetch -> remove hidden -> append items.
-    // New logic: When 'voting-section' is shown, start observing a placeholder?
-    // Let's assume we want to fetch it when the USER SCROLLS down to the bottom of voting form.
-    // Let's observe 'btnPreSubmit' as a proxy - when user sees submit button, we fetch reviews below it.
     const trigger = document.getElementById('btnPreSubmit');
-    if (trigger) observer.observe(trigger);
+    if (trigger) {
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                fetchLiveReviews();
+                observer.disconnect(); 
+            }
+        }, { threshold: 0.1 });
+        observer.observe(trigger);
+    }
 }
+
 async function syncUserStatus(phone) {
     try {
         const result = await callWorker('check-vote-count', { phone_input: phone });
@@ -938,7 +959,7 @@ async function fetchSponsors() {
         const result = await callWorker('get-sponsors', { is_active: true });
         let data = (typeof result === 'object' && result !== null && result.data) ? result.data : result;
         if (data && Array.isArray(data) && data.length) {
-            window.cachedSponsors = data; // CACHE HERE
+            window.cachedSponsors = data; 
             const c = document.getElementById('sponsorContainer');
             if (!c) return; c.innerHTML = '';
             data.forEach((s, i) => { c.innerHTML += `<div class="carousel-slide ${i === 0 ? 'active' : ''}"><a href="${s.target_url || '#'}" target="_blank" style="display:flex;justify-content:center;align-items:center;width:100%;height:100%;"><img src="${s.image_url}" class="carousel-img"></a></div>`; });
@@ -981,8 +1002,8 @@ function showModal(type, title, msg, onConfirm) {
     document.getElementById('modalIconText').classList.remove('hidden');
     document.getElementById('modalIconImg').classList.add('hidden');
     document.getElementById('btnCancel').classList.add('hidden');
-    document.querySelectorAll('#neuModal .hidden-section').forEach(s => s.classList.add('hidden')); // Hypothetical class for sections
-    // Manually hide sections
+    document.querySelectorAll('#neuModal .hidden-section').forEach(s => s.classList.add('hidden')); 
+    
     document.getElementById('otpDisplaySection').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
     document.getElementById('profileViewSection').classList.add('hidden');
